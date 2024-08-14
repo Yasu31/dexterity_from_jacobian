@@ -44,15 +44,61 @@ body_dof_ids = np.arange(model.body_dofadr[body_id], model.body_dofadr[body_id] 
 body_qpos_ids = np.arange(model.body_jntadr[body_id], model.body_jntadr[body_id] + 7)
 print(f"{body_id=}\n{body_dof_ids=}\n{body_qpos_ids=}")
 
+# get the indices to access the ghost object (just to show the target pose)
+ghost_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object_ghost")
+assert ghost_body_id != -1, "Ghost object not found"
+
+mujoco.mj_forward(model, data)
+body_init_pose = data.qpos[body_qpos_ids].copy()
+print(f"{body_init_pose=}")
+body_target_pos = np.zeros(3)
+
 # the estimated control Jacobian
 J = np.zeros((3, actuator_num))
 # covariance of the estimated J
-p = np.eye(3) * 1e-1
+p = np.ones(actuator_num) * 1e-1
+
+def compute_task_space_command():
+    """
+    compute the task space command that will bring the system closer to task space goal
+    it is supposed to be the desired velocity in the task space
+    """
+    # the target should slowly draw a circle
+    phase = data.time * 3
+    body_target_pos[:] = body_init_pose[:3] + 0.01 * np.array([np.sin(phase), np.cos(phase), 0])
+    body_target_pos[2] -= 0.02
+    # move the mocap object to the target position for visualization
+    data.mocap_pos[:] = body_target_pos
+    body_pos = data.xpos[body_id]
+    
+    task_space_vel = (body_target_pos - body_pos) * 4
+    return task_space_vel
+
 
 def control_cb(model, data):
+    """
+    callback function called on every step, and is used to set the control command
+    """
+    # don't do anything for the first moments (until ball falls)
+    if data.time < 0.5:
+        return
+    # first update the estimation of the Jacobian
+    global J, p
     q = data.qpos[actuated_qpos_ids]
     dq = data.qvel[actuated_dof_ids]
     u = data.qvel[body_dof_ids[:3]]
+    r = 1e-3  # observation noise variance
+    numerator = (u - J @ dq).reshape((-1, 1)) @ (p * dq).reshape((1, -1))
+    denominator = p.T @ (dq * dq) + r
+    J += numerator / denominator
+    p = p * (1 - p * dq * dq / denominator)
+
+    task_space_vel = compute_task_space_command()
+    dt = model.opt.timestep
+    delta_q = np.linalg.pinv(J) @ task_space_vel * dt
+    delta_q = np.clip(delta_q, -0.1, 0.1)  # don't move too much in one step
+    data.ctrl[:] += delta_q
+    data.ctrl[:] = np.clip(data.ctrl, model.actuator_ctrlrange[:, 0], model.actuator_ctrlrange[:, 1])
 
 mujoco.set_mjcb_control(control_cb)
 
