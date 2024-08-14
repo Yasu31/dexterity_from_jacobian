@@ -22,7 +22,7 @@
     <geom name="floor" pos="0 0 -0.1" size="0 0 0.05" type="plane" material="groundplane"/>
     <body name="object" pos="0.35 0 0.07">
       <freejoint/>
-      <geom type="sphere" size="0.04" rgba="0.5 0.7 0.5 1" condim="6" priority="1"
+      <geom type="sphere" size="0.04" rgba="0.5 0.7 0.5 1" condim="6" priority="1" mass="0.1"
         friction="0.5 0.01 0.003"/>
     </body>
     <body name="object_ghost" pos="0 0 0" mocap="true">
