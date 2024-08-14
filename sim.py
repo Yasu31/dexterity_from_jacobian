@@ -10,13 +10,14 @@ model_path = "shadow_hand/scene_sphere.xml"
 model = mujoco.MjModel.from_xml_path(model_path)
 data = mujoco.MjData(model)
 
-# initial hand pose that angles hand downwards and lightly closes the fingers
-data.ctrl[:] = [0.08, -0.35,
+# initial commanded hand pose that angles hand downwards and lightly closes the fingers
+init_ctrl = [0.08, -0.3,
                 0., 1.2, 0, 0.4, 0,
-                0, 0.4, 2,
-                0, 0.4, 2,
-                0, 0.4, 2,
-                0, 0, 0.4, 2,]
+                -0.1, 0.4, 2,
+                0.0, 0.4, 2,
+                -0.1, 0.4, 2,
+                0, -0.2, 0.4, 2,]
+data.ctrl[:] = init_ctrl
 actuator_num = model.nu
 
 # get the indices to access the robot's state
