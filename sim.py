@@ -66,13 +66,13 @@ def compute_task_space_command():
     """
     # the target should slowly draw a circle
     phase = data.time * 3
-    body_target_pos[:] = body_init_pose[:3] + 0.01 * np.array([np.sin(phase), np.cos(phase), 0])
+    body_target_pos[:] = body_init_pose[:3] + 0.02 * np.array([np.sin(phase), np.cos(1.4*phase), np.cos(1.3*phase)*0.2])
     body_target_pos[2] -= 0.02
     # move the mocap object to the target position for visualization
     data.mocap_pos[:] = body_target_pos
     body_pos = data.xpos[body_id]
     
-    task_space_vel = (body_target_pos - body_pos) * 4
+    task_space_vel = (body_target_pos - body_pos) * 8
     return task_space_vel
 
 
@@ -95,6 +95,7 @@ def control_cb(model, data):
     p = p * (1 - p * dq * dq / denominator)
 
     task_space_vel_desired = compute_task_space_command()
+    # compute the updated commanded joint position which tries to achieve the desired task space vel while bringing it back to initial pose
     dt = model.opt.timestep
     eps = 0.003  # how much to weigh the "going back to init pose" term
     ctrl_0 = init_ctrl - data.ctrl
