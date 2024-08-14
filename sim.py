@@ -94,9 +94,12 @@ def control_cb(model, data):
     J += numerator / denominator
     p = p * (1 - p * dq * dq / denominator)
 
-    task_space_vel = compute_task_space_command()
+    task_space_vel_desired = compute_task_space_command()
     dt = model.opt.timestep
-    delta_q = np.linalg.pinv(J) @ task_space_vel * dt
+    eps = 0.003  # how much to weigh the "going back to init pose" term
+    ctrl_0 = init_ctrl - data.ctrl
+    # Tikhonov regularization with a shifted center
+    delta_q = np.linalg.inv(J.T@J + eps*np.eye(actuator_num)) @ (J.T @ task_space_vel_desired + eps * ctrl_0) * dt
     delta_q = np.clip(delta_q, -0.1, 0.1)  # don't move too much in one step
     data.ctrl[:] += delta_q
     data.ctrl[:] = np.clip(data.ctrl, model.actuator_ctrlrange[:, 0], model.actuator_ctrlrange[:, 1])
