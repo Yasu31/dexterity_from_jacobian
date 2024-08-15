@@ -42,18 +42,18 @@ actuated_qpos_ids = [int(model.jnt_qposadr[joint_id]) for joint_id in actuated_j
 print(f"{actuator_names=}\n{actuated_joint_names=}\n{actuated_joint_ids=}\n{actuated_dof_ids=}\n{actuated_qpos_ids=}")
 
 # get the indices to access the object's state
-body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object")
-assert body_id != -1, "Object not found"
-body_dof_ids = np.arange(model.body_dofadr[body_id], model.body_dofadr[body_id] + model.body_dofnum[body_id])
-body_qpos_ids = np.arange(model.body_jntadr[body_id], model.body_jntadr[body_id] + 7)
-print(f"{body_id=}\n{body_dof_ids=}\n{body_qpos_ids=}")
+object_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object")
+assert object_id != -1, "Object not found"
+object_dof_ids = np.arange(model.body_dofadr[object_id], model.body_dofadr[object_id] + model.body_dofnum[object_id])
+object_qpos_ids = np.arange(model.body_jntadr[object_id], model.body_jntadr[object_id] + 7)
+print(f"{object_id=}\n{object_dof_ids=}\n{object_qpos_ids=}")
 
 # get the indices to access the ghost object (just to show the target pose)
-ghost_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object_ghost")
-assert ghost_body_id != -1, "Ghost object not found"
+ghost_object_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object_ghost")
+assert ghost_object_id != -1, "Ghost object not found"
 
 mujoco.mj_forward(model, data)
-body_init_pose = data.qpos[body_qpos_ids].copy()
+body_init_pose = data.qpos[object_qpos_ids].copy()
 print(f"{body_init_pose=}")
 body_target_pos = np.zeros(3)
 
@@ -73,7 +73,7 @@ def compute_task_space_command():
     body_target_pos[2] -= 0.02
     # move the mocap object to the target position for visualization
     data.mocap_pos[:] = body_target_pos
-    body_pos = data.xpos[body_id]
+    body_pos = data.xpos[object_id]
     
     task_space_vel = (body_target_pos - body_pos) * 8
     return task_space_vel
@@ -90,7 +90,7 @@ def control_cb(model, data):
     global J, p
     q = data.qpos[actuated_qpos_ids]
     dq = data.qvel[actuated_dof_ids]
-    u = data.qvel[body_dof_ids[:3]]
+    u = data.qvel[object_dof_ids[:3]]
     r = 1e-3  # observation noise variance
     numerator = (u - J @ dq).reshape((-1, 1)) @ (p * dq).reshape((1, -1))
     denominator = p.T @ (dq * dq) + r
