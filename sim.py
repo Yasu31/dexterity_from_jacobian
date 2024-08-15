@@ -111,6 +111,11 @@ def compute_task_space_command():
     task_space_vel = (body_target_pos - body_pos) * 8
     return task_space_vel
 
+def compute_task_space_vel():
+    """
+    return the velocity of task
+    """
+    return data.qvel[object_dof_ids[:3]]
 
 def control_cb(model, data):
     """
@@ -134,7 +139,7 @@ def control_cb(model, data):
     global J, p
     q = data.qpos[actuated_qpos_ids]
     dq = data.qvel[actuated_dof_ids]
-    u = data.qvel[object_dof_ids[:3]]
+    u = compute_task_space_vel()
     r = 1e-3  # observation noise variance
 
     # just update the part of the Jacobian that affects the object
