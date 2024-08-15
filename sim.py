@@ -41,6 +41,17 @@ actuated_dof_ids = [int(model.jnt_dofadr[joint_id]) for joint_id in actuated_joi
 actuated_qpos_ids = [int(model.jnt_qposadr[joint_id]) for joint_id in actuated_joint_ids]
 print(f"{actuator_names=}\n{actuated_joint_names=}\n{actuated_joint_ids=}\n{actuated_dof_ids=}\n{actuated_qpos_ids=}")
 
+# find out which actuators belong to each finger
+finger_name_filters = ["_TH", "_FF", "_MF", "_RF", "_LF"]
+actuator2finger = np.zeros(actuator_num) - 1  # -1 means not assigned to any finger
+for i in range(actuator_num):
+    for finger_id, finger_name_filter in enumerate(finger_name_filters):
+        if finger_name_filter in actuator_names[i]:
+            actuator2finger[i] = finger_id
+            break
+    assert actuator2finger[i] != -1, f"Actuator {actuator_names[i]} not assigned to any finger"
+print(f"{actuator2finger=}")
+
 # get the indices to access the object's state
 object_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object")
 assert object_id != -1, "Object not found"
@@ -109,16 +120,36 @@ def control_cb(model, data):
     if data.time < 0.5:
         return
     finger_contacts = check_finger_contact()
-    # first update the estimation of the Jacobian
+    # compute for which actuators affect the object currently (the finger that the actuator belongs to is in contact with the object)
+    actuator_affecting_object_ids = []
+    for i in range(actuator_num):
+        if finger_contacts[int(actuator2finger[i])]:
+            actuator_affecting_object_ids.append(i)
+    # matrix that reduces the dimension 
+    actuator_affecting_object_selectionmatrix = np.zeros((len(actuator_affecting_object_ids), actuator_num))
+    for i, actuator_id in enumerate(actuator_affecting_object_ids):
+        actuator_affecting_object_selectionmatrix[i, actuator_id] = 1
+
+    # first update the estimation of the Jacobian, just for the actuators whose fingers are in contact with the object
     global J, p
     q = data.qpos[actuated_qpos_ids]
     dq = data.qvel[actuated_dof_ids]
     u = data.qvel[object_dof_ids[:3]]
     r = 1e-3  # observation noise variance
-    numerator = (u - J @ dq).reshape((-1, 1)) @ (p * dq).reshape((1, -1))
-    denominator = p.T @ (dq * dq) + r
-    J += numerator / denominator
-    p = p * (1 - p * dq * dq / denominator)
+
+    # just update the part of the Jacobian that affects the object
+    J_slice = J[:, actuator_affecting_object_ids]
+    p_slice = p[actuator_affecting_object_ids]
+    q_slice = q[actuator_affecting_object_ids]
+    dq_slice = dq[actuator_affecting_object_ids]
+
+    numerator = (u - J_slice @ dq_slice).reshape((-1, 1)) @ (p_slice * dq_slice).reshape((1, -1))
+    denominator = p_slice.T @ (dq_slice * dq_slice) + r
+    J_slice[:] += numerator / denominator
+    p_slice[:] *= 1 - p_slice * dq_slice * dq_slice / denominator
+
+    J[:, actuator_affecting_object_ids] = J_slice
+    p[actuator_affecting_object_ids] = p_slice
 
     task_space_vel_desired = compute_task_space_command()
     # compute the updated commanded joint position which tries to achieve the desired task space vel while bringing it back to initial pose
