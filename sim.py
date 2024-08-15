@@ -19,8 +19,15 @@ init_ctrl = [0.08, -0.3,
                 0, -0.3, 0.5, 2,]
 init_ctrl = np.array(init_ctrl)
 data.ctrl[:] = init_ctrl
-# actuators_enabled = np.arange(model.nu)  # use all actuators
-actuators_enabled = np.arange(2, model.nu)  # disable the first two actuators (they control the wrist)
+
+# params for sphere position task with all actuators
+actuators_enabled = np.arange(model.nu)  # use all actuators
+eps = 0.002  # how much to weigh the "going back to init pose" term
+
+# params for sphere position task with no wrist
+# actuators_enabled = np.arange(2, model.nu)  # disable the first two actuators (they control the wrist)
+# eps = 0.001
+
 actuator_num = len(actuators_enabled)
 
 # get the indices to access the robot's state
@@ -49,7 +56,8 @@ for i in range(actuator_num):
         if finger_name_filter in actuator_names[i]:
             actuator2finger[i] = finger_id
             break
-    assert actuator2finger[i] != -1, f"Actuator {actuator_names[i]} not assigned to any finger"
+    if (actuator2finger[i] == -1):
+        print(f"Actuator {actuator_names[i]} not assigned to any finger")
 print(f"{actuator2finger=}")
 
 # get the indices to access the object's state
@@ -159,7 +167,6 @@ def control_cb(model, data):
     task_space_vel_desired = compute_task_space_command()
     # compute the updated commanded joint position which tries to achieve the desired task space vel while bringing it back to initial pose
     dt = model.opt.timestep
-    eps = 0.001  # how much to weigh the "going back to init pose" term
     ctrl_0 = init_ctrl[actuators_enabled] - data.ctrl[actuators_enabled]
     # Tikhonov regularization with a shifted center
     delta_q = np.linalg.inv(actuator_affecting_object_selectionmatrix.T@J_slice.T@J_slice@actuator_affecting_object_selectionmatrix + eps*np.eye(actuator_num)) @\
