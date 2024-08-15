@@ -100,11 +100,13 @@ def control_cb(model, data):
     task_space_vel_desired = compute_task_space_command()
     # compute the updated commanded joint position which tries to achieve the desired task space vel while bringing it back to initial pose
     dt = model.opt.timestep
-    eps = 0.003  # how much to weigh the "going back to init pose" term
+    eps = 0.001  # how much to weigh the "going back to init pose" term
     ctrl_0 = init_ctrl[actuators_enabled] - data.ctrl[actuators_enabled]
     # Tikhonov regularization with a shifted center
     delta_q = np.linalg.inv(J.T@J + eps*np.eye(actuator_num)) @ (J.T @ task_space_vel_desired + eps * ctrl_0) * dt
-    delta_q = np.clip(delta_q, -0.1, 0.1)  # don't move too much in one step
+    # don't move too fast
+    max_joint_vel = 10
+    delta_q = np.clip(delta_q, -max_joint_vel*dt, max_joint_vel*dt)
     data.ctrl[actuators_enabled] += delta_q
     data.ctrl[:] = np.clip(data.ctrl, model.actuator_ctrlrange[:, 0], model.actuator_ctrlrange[:, 1])
 
