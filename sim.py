@@ -157,7 +157,8 @@ def control_cb(model, data):
     eps = 0.001  # how much to weigh the "going back to init pose" term
     ctrl_0 = init_ctrl[actuators_enabled] - data.ctrl[actuators_enabled]
     # Tikhonov regularization with a shifted center
-    delta_q = np.linalg.inv(J.T@J + eps*np.eye(actuator_num)) @ (J.T @ task_space_vel_desired + eps * ctrl_0) * dt
+    delta_q = np.linalg.inv(actuator_affecting_object_selectionmatrix.T@J_slice.T@J_slice@actuator_affecting_object_selectionmatrix + eps*np.eye(actuator_num)) @\
+              (actuator_affecting_object_selectionmatrix.T@J_slice.T @ task_space_vel_desired + eps * ctrl_0) * dt
     # don't move too fast
     max_joint_vel = 10
     delta_q = np.clip(delta_q, -max_joint_vel*dt, max_joint_vel*dt)
