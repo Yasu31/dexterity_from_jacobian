@@ -17,12 +17,15 @@ init_ctrl = [0.08, -0.3,
                 0.0, 0.4, 2,
                 -0.1, 0.4, 2,
                 0, -0.2, 0.4, 2,]
+init_ctrl = np.array(init_ctrl)
 data.ctrl[:] = init_ctrl
-actuator_num = model.nu
+# actuators_enabled = np.arange(model.nu)  # use all actuators
+actuators_enabled = np.arange(2, model.nu)  # disable the first two actuators (they control the wrist)
+actuator_num = len(actuators_enabled)
 
 # get the indices to access the robot's state
 # get the names of the actuators
-actuator_names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_ACTUATOR, i) for i in range(actuator_num)]
+actuator_names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_ACTUATOR, i) for i in actuators_enabled]
 # get the indices of the corresponding joints
 # convert the actuator names to the joint names (specific to the shadow hand)
 actuated_joint_names = [actuator_name.replace("_A_", "_") for actuator_name in actuator_names]
@@ -98,11 +101,11 @@ def control_cb(model, data):
     # compute the updated commanded joint position which tries to achieve the desired task space vel while bringing it back to initial pose
     dt = model.opt.timestep
     eps = 0.003  # how much to weigh the "going back to init pose" term
-    ctrl_0 = init_ctrl - data.ctrl
+    ctrl_0 = init_ctrl[actuators_enabled] - data.ctrl[actuators_enabled]
     # Tikhonov regularization with a shifted center
     delta_q = np.linalg.inv(J.T@J + eps*np.eye(actuator_num)) @ (J.T @ task_space_vel_desired + eps * ctrl_0) * dt
     delta_q = np.clip(delta_q, -0.1, 0.1)  # don't move too much in one step
-    data.ctrl[:] += delta_q
+    data.ctrl[actuators_enabled] += delta_q
     data.ctrl[:] = np.clip(data.ctrl, model.actuator_ctrlrange[:, 0], model.actuator_ctrlrange[:, 1])
 
 mujoco.set_mjcb_control(control_cb)
