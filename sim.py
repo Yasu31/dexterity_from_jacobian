@@ -12,11 +12,11 @@ data = mujoco.MjData(model)
 
 # initial commanded hand pose that angles hand downwards and lightly closes the fingers
 init_ctrl = [0.08, -0.3,
-                0., 1.2, 0, 0.4, 0,
-                -0.1, 0.4, 2,
+                0.2, 1.2, 0.2, 0.4, 0,
+                -0.1, 0.6, 2,
                 0.0, 0.4, 2,
                 -0.1, 0.4, 2,
-                0, -0.2, 0.4, 2,]
+                0, -0.3, 0.5, 2,]
 init_ctrl = np.array(init_ctrl)
 data.ctrl[:] = init_ctrl
 # actuators_enabled = np.arange(model.nu)  # use all actuators
