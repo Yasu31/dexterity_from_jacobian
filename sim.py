@@ -62,6 +62,28 @@ J = np.zeros((3, actuator_num))
 # covariance of the estimated J
 p = np.ones(actuator_num) * 1e-1
 
+
+def check_finger_contact():
+    """
+    check if each finger is in contact with the object
+    """
+    # if the body name contains any of these strings, it belongs to a finger
+    finger_name_filters = ['rh_th', 'rh_ff', 'rh_mf', 'rh_rf', 'rh_lf']
+    finger_contact_detected = np.zeros(5)
+    for contact in data.contact:
+        collision_body_ids = [model.geom_bodyid[geom] for geom in contact.geom]
+        if object_id in collision_body_ids:
+            # this contact is with the object; find out if it is in contact with a finger
+            other_body_id = collision_body_ids[0] if collision_body_ids[1] == object_id else collision_body_ids[1]
+            other_body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, other_body_id)
+            for i, finger_name_filter in enumerate(finger_name_filters):
+                if finger_name_filter in other_body_name:
+                    finger_contact_detected[i] = 1
+                    break
+    # print(f"{finger_contact_detected=}")
+    return finger_contact_detected
+
+
 def compute_task_space_command():
     """
     compute the task space command that will bring the system closer to task space goal
@@ -86,6 +108,7 @@ def control_cb(model, data):
     # don't do anything for the first moments (until ball falls)
     if data.time < 0.5:
         return
+    finger_contacts = check_finger_contact()
     # first update the estimation of the Jacobian
     global J, p
     q = data.qpos[actuated_qpos_ids]
