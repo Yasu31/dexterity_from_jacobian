@@ -130,8 +130,6 @@ def control_cb(model, data):
     callback function called on every step, and is used to set the control command
     """
     # don't do anything for the first moments (until ball falls)
-    if data.time < 0.5:
-        return
     finger_contacts = check_finger_contact()
     # compute for which actuators affect the object currently (the finger that the actuator belongs to is in contact with the object)
     actuator_affecting_object_ids = []
