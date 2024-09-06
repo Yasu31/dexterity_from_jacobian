@@ -1,0 +1,45 @@
+<mujoco model="right_shadow_hand scene">
+  <compiler texturedir="assets"/>
+  <include file="right_hand_tilted.xml"/>
+
+  <statistic extent="0.3" center="0.3 0 0"/>
+
+  <visual>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <quality shadowsize="8192"/>
+    <global azimuth="220" elevation="-30"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    <mesh name="cube" file="cube.obj"/>
+    <texture name="cube" file="cube.png" type="2d"/>
+    <material name="cube" texture="cube"/>
+    <material name="cube_ghost" texture="cube" rgba="1 1 1 0.2"/>
+  </asset>
+
+  <keyframe>
+    <!-- TODO: set better pen init pose -->
+    <key qpos='-0.0657754 0.0179616 0.0180048 0.305514 0.996231 1.00284 0.00591512 1.00065 1.15478 1.44303 0.00168543 1.38562 1.56519 1.57115 -0.000420573 0.000951136 1.34421 1.56515 1.57115 0.0313995 0.781371 0.0108087 0.698758 0.301273 0.35 0 0.1 1 0 0 0'
+         ctrl='0 0 0
+               0.76 0 0.7 0.3
+               0 0.3 2.
+               0 1 2.6
+               0 1.5 3.14
+               0 0 1.5 3.14'/>
+  </keyframe>
+
+  <worldbody>
+    <light pos="0 0 1"/>
+    <light pos="0.3 0 1.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" pos="0 0 -0.1" size="0 0 0.05" type="plane" material="groundplane"/>
+    <body name="object" pos="0 0 0">
+      <freejoint/>
+      <geom type="capsule" size="0.008 0.075" condim="6" priority="1" mass="0.1"
+        friction="0.5 0.01 0.003"/>
+    </body>
+  </worldbody>
+</mujoco>
