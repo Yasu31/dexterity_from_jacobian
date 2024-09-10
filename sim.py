@@ -125,6 +125,35 @@ def compute_task_space_vel():
     """
     return data.qvel[object_dof_ids[:3]]
 
+def compute_task_space_command_cube():
+    """
+    compute command to rotate the cube towards target orientation
+    """
+    quat_current = data.xquat[object_id]
+    quat_target = data.xquat[ghost_object_id]
+    pos_current = data.xpos[object_id]
+    pos_target = data.xpos[ghost_object_id]
+    rot_diff = np.zeros(3)
+    mujoco.mju_subQuat(rot_diff, quat_target, quat_current)
+    pos_diff = pos_target - pos_current
+    data.mocap_quat[:] = quat_target
+    data.mocap_pos[:] = body_init_pose[:3] + np.array([0., 0., -0.04])
+    if np.linalg.norm(rot_diff) < 0.1:
+        print("Target orientation reached")
+        # generate new target orientation
+        quat_target = np.random.rand(4)
+        quat_target /= np.linalg.norm(quat_target)
+        data.mocap_quat[:] = quat_target
+    
+    return np.concatenate((pos_diff * 8, rot_diff * 1))
+
+
+def compute_task_space_vel_cube():
+    """
+    compute rotational velocity of the cube
+    """
+    return data.qvel[object_dof_ids]
+
 def control_cb(model, data):
     """
     callback function called on every step, and is used to set the control command
