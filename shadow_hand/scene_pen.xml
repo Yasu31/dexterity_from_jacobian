@@ -47,9 +47,9 @@
       <freejoint/>
       <geom type="capsule" size="0.008 0.075" condim="6" priority="1" mass="0.1"
         friction="0.5 0.01 0.003"/>
-      <body name="object" pos="0 0 -0.075">
+      <body name="object" pos="0 0 -0.085">
         <!-- the body at the pen tip, that will be tracked -->
-        <geom type="sphere" size="0.008" mass="0" rgba="1 0 0 1"/>
+        <geom type="sphere" size="0.003" mass="0" rgba="1 0 0 1"/>
       </body>
     </body>
   </worldbody>

@@ -6,17 +6,18 @@ import numpy as np
 run the simulation using the estimated Jacobian based controller
 """
 
-model_path = "shadow_hand/scene_sphere.xml"
+model_path = "shadow_hand/scene_pen.xml"
 model = mujoco.MjModel.from_xml_path(model_path)
 data = mujoco.MjData(model)
+mujoco.mj_resetDataKeyframe(model, data, 0)  # Reset the state to keyframe 0
 
-# initial commanded hand pose that angles hand downwards and lightly closes the fingers
-init_ctrl = [0.08, -0.3,
-                0.2, 1.2, 0.2, 0.4, 0,
-                -0.1, 0.6, 2,
-                0.0, 0.4, 2,
-                -0.1, 0.4, 2,
-                0, -0.3, 0.5, 2,]
+# copied from the XML
+init_ctrl = [0, 0,
+             0.18, 0.9, 0, 0.7, 0.3,
+             0, 0.35, 2.,
+             0, 1, 2.,
+             0, 1., 3.14,
+             0, 0, 1., 3.14]
 init_ctrl = np.array(init_ctrl)
 data.ctrl[:] = init_ctrl
 
@@ -68,8 +69,8 @@ object_qpos_ids = np.arange(model.body_jntadr[object_id], model.body_jntadr[obje
 print(f"{object_id=}\n{object_dof_ids=}\n{object_qpos_ids=}")
 
 # get the indices to access the ghost object (just to show the target pose)
-ghost_object_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object_ghost")
-assert ghost_object_id != -1, "Ghost object not found"
+# ghost_object_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object_ghost")
+# assert ghost_object_id != -1, "Ghost object not found"
 
 mujoco.mj_forward(model, data)
 body_init_pose = data.qpos[object_qpos_ids].copy()
@@ -166,6 +167,12 @@ def compute_task_space_vel_cube():
     """
     return data.qvel[object_dof_ids]
 
+def compute_task_space_command_pen():
+    return np.zeros(3)
+
+def compute_task_space_vel_pen():
+    return np.zeros(3)
+
 def control_cb(model, data):
     """
     callback function called on every step, and is used to set the control command
@@ -186,7 +193,7 @@ def control_cb(model, data):
     global J, p
     q = data.qpos[actuated_qpos_ids]
     dq = data.qvel[actuated_dof_ids]
-    u = compute_task_space_vel()
+    u = compute_task_space_vel_pen()
     r = 1e-3  # observation noise variance
 
     # just update the part of the Jacobian that affects the object
@@ -203,7 +210,7 @@ def control_cb(model, data):
     J[:, actuator_affecting_object_ids] = J_slice
     p[actuator_affecting_object_ids] = p_slice
 
-    task_space_vel_desired = compute_task_space_command()
+    task_space_vel_desired = compute_task_space_command_pen()
     # compute the updated commanded joint position which tries to achieve the desired task space vel while bringing it back to initial pose
     dt = model.opt.timestep
     ctrl_0 = init_ctrl[actuators_enabled] - data.ctrl[actuators_enabled]
