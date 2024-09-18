@@ -81,6 +81,18 @@ J = np.zeros((3, actuator_num))
 # covariance of the estimated J
 p = np.ones(actuator_num) * 1e-1
 
+def path(t):
+    """
+    when given a parameter t, returns the point on the path at t and the time derivative (i.e. velocity at that point)
+    """
+    a = 0.02
+    offset = np.array([0.11, -0.4, -0.04])
+    x = a * (np.cos(t) / (1 + np.sin(t)**2))
+    y = a * (np.sin(t) * np.cos(t) / (1 + np.sin(t)**2))
+    dx = a*(np.sin(t)**2 - 3)*np.sin(t)/(np.sin(t)**2 + 1)**2
+    dy = a*(1 - 3*np.sin(t)**2)/(np.sin(t)**2 + 1)**2
+
+    return np.array([x, y, 0]) + offset, np.array([dx, dy, 0])
 
 def check_finger_contact():
     """
@@ -206,5 +218,32 @@ def control_cb(model, data):
 
 mujoco.set_mjcb_control(control_cb)
 
+with mujoco.viewer.launch_passive(model, data) as viewer:
+    # how much in the future and past to draw t
+    t_trail_timerange = 1.
+    # how many points to use to draw the future path
+    t_draw_future_num_points = 10
+    # add the required number of geoms to draw the future path
+    scene = viewer.user_scn
+    scene.ngeom += t_draw_future_num_points
 
-viewer.launch(model, data)
+    while viewer.is_running():
+        #### DRAW PAST AND FUTURE PATH ####
+        t = data.time
+        for i in range(t_draw_future_num_points):
+            t_ = t + (t_trail_timerange/2 - t_trail_timerange * i / t_draw_future_num_points)
+            pos, _ = path(t_)
+            rgba = np.array([1., 1., 1., 1. - i / t_draw_future_num_points])
+            if i == t_draw_future_num_points//2:
+                rgba[:] = [1, 0, 0, 1]  # make the current point red
+            mujoco.mjv_initGeom(scene.geoms[scene.ngeom-1-i],
+                mujoco.mjtGeom.mjGEOM_SPHERE,
+                np.array([0.001, 0, 0]),  # size
+                pos,
+                np.eye(3).flatten(),  # rotation
+                rgba,
+            )
+        
+        #### simulate ####
+        mujoco.mj_step(model, data)
+        viewer.sync()
