@@ -13,8 +13,8 @@ mujoco.mj_resetDataKeyframe(model, data, 0)  # Reset the state to keyframe 0
 
 # copied from the XML
 init_ctrl = [0, 0,
-             0.18, 0.9, 0, 0.7, 0.3,
-             0, 0.35, 2.,
+             0.24, 1., 0, 0.5, 0.3,
+             0, 0.4, 2.2,
              0, 1, 2.,
              0, 1., 3.14,
              0, 0, 1., 3.14]
@@ -26,8 +26,8 @@ actuators_enabled = np.arange(model.nu)  # use all actuators
 eps = 0.002  # how much to weigh the "going back to init pose" term
 
 # params for sphere position task with no wrist
-# actuators_enabled = np.arange(2, model.nu)  # disable the first two actuators (they control the wrist)
-# eps = 0.001
+actuators_enabled = np.arange(2, model.nu)  # disable the first two actuators (they control the wrist)
+eps = 0.003
 
 actuator_num = len(actuators_enabled)
 
@@ -68,6 +68,9 @@ object_dof_ids = np.arange(model.body_dofadr[object_id], model.body_dofadr[objec
 object_qpos_ids = np.arange(model.body_jntadr[object_id], model.body_jntadr[object_id] + 7)
 print(f"{object_id=}\n{object_dof_ids=}\n{object_qpos_ids=}")
 
+pen_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "pen")
+assert pen_id != -1, "Pen not found"
+
 # get the indices to access the ghost object (just to show the target pose)
 # ghost_object_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "object_ghost")
 # assert ghost_object_id != -1, "Ghost object not found"
@@ -86,12 +89,17 @@ def path(t):
     """
     when given a parameter t, returns the point on the path at t and the time derivative (i.e. velocity at that point)
     """
-    a = 0.02
-    offset = np.array([0.11, -0.4, -0.04])
+    a = 0.005
+    offset = np.array([0.09, -0.35, -0.068])
     x = a * (np.cos(t) / (1 + np.sin(t)**2))
     y = a * (np.sin(t) * np.cos(t) / (1 + np.sin(t)**2))
     dx = a*(np.sin(t)**2 - 3)*np.sin(t)/(np.sin(t)**2 + 1)**2
     dy = a*(1 - 3*np.sin(t)**2)/(np.sin(t)**2 + 1)**2
+
+    x = a * np.cos(t)
+    y = a * np.sin(t)
+    dx = -a * np.sin(t)
+    dy = a * np.cos(t)
 
     return np.array([x, y, 0]) + offset, np.array([dx, dy, 0])
 
@@ -104,9 +112,9 @@ def check_finger_contact():
     finger_contact_detected = np.zeros(5)
     for contact in data.contact:
         collision_body_ids = [model.geom_bodyid[geom] for geom in contact.geom]
-        if object_id in collision_body_ids:
+        if pen_id in collision_body_ids:
             # this contact is with the object; find out if it is in contact with a finger
-            other_body_id = collision_body_ids[0] if collision_body_ids[1] == object_id else collision_body_ids[1]
+            other_body_id = collision_body_ids[0] if collision_body_ids[1] == pen_id else collision_body_ids[1]
             other_body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, other_body_id)
             for i, finger_name_filter in enumerate(finger_name_filters):
                 if finger_name_filter in other_body_name:
@@ -168,10 +176,14 @@ def compute_task_space_vel_cube():
     return data.qvel[object_dof_ids]
 
 def compute_task_space_command_pen():
-    return np.zeros(3)
+    t = data.time
+    target_pos, target_vel = path(t)
+    body_pos = data.xpos[object_id]
+    task_space_vel = (target_pos - body_pos) * 8 + target_vel
+    return task_space_vel
 
 def compute_task_space_vel_pen():
-    return np.zeros(3)
+    return data.sensordata
 
 def control_cb(model, data):
     """
